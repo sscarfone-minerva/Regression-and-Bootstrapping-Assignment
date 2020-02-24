@@ -1,0 +1,172 @@
+#Question 1
+#Part A
+install.packages("arm")
+library(arm)
+library(Matching)
+set.seed(404)
+sesame <- read.csv("https://tinyurl.com/wlgl63b")
+summary(sesame)
+test.sesame<- sesame[which(sesame$treatment == 1),]
+summary(test.sesame)
+control.sesame<- sesame[which(sesame$treatment==0),]
+myplot<- plot(test.sesame$pre.test,test.sesame$post.test, xlim=c(0,120),ylim=c(0,120),xlab='pre-test, x',ylab='post-test, y',main='Grade 4')
+abline(lm(test.sesame$post.test ~ test.sesame$pre.test, data = test.sesame))
+points(control.sesame$pre.test,control.sesame$post.test, pch=20,col='Black')
+abline(lm(control.sesame$post.test~control.sesame$pre.test), lty='dashed')
+control.sesame
+#Part B
+test.sesame[12,1]<- 115.6
+test.sesame
+myplot<- plot(test.sesame$pre.test,test.sesame$post.test, col=ifelse(test.sesame$pre.test==104.1, 'cornflowerblue','black'),xlim=c(0,120),ylim=c(0,120),xlab='pre-test, x',ylab='post-test, y',main='Grade 4')
+abline(lm(test.sesame$post.test ~ test.sesame$pre.test, data = test.sesame))
+points(control.sesame$pre.test,control.sesame$post.test, pch=20,col='Black')
+abline(lm(control.sesame$post.test~control.sesame$pre.test), lty='dashed')
+test.sesame
+#Part C
+attach(sesame)
+lm.4 <- lm (post.test ~ treatment + pre.test + treatment:pre.test)
+lm.4.sim <- sim (lm.4)
+plot (0, 0, xlim=range (pre.test), ylim=c(-5,10), xlab="pre-test", ylab="treatment effect", main="Treatment Effect in Grade 4")
+abline (0, 0, lwd=.5, lty=2)
+class(lm.4.sim)
+for (i in 1:20){ 
+  abline (a = coef(lm.4.sim)[i,2], b = coef(lm.4.sim)[i,4], lwd=.5, col="gray")
+  }
+abline (coef(lm.4)[2] + coef(lm.4)[4]*x, lwd=.5, add=TRUE) 
+
+#Question 2
+tinting <- read.csv(url("https://tinyurl.com/v4bq99k"))
+tinting$sex <- factor(tinting$sex)
+tinting$target<-factor(tinting$target)
+csoa_model<- lm(csoa~age+sex+target+I(tint != "no")+I(as.numeric(tint!= "no")*age),data=tinting)
+sim_results<- sim(csoa_model, n.sims = 1000)
+ages_vec<-c(20,30,40,50,60,70,80)
+ages_matrix<- matrix(nrow=7,ncol=3)
+rownames(ages_matrix)<-ages_vec
+colnames(ages_matrix)<- c("2.5%","97.5%","Mean")
+allpredicted<-matrix(nrow=7,ncol=1000)
+rownames(allpredicted)<- ages_vec
+tinting$tint<-factor(tinting$tint)
+tinting$tint<-as.numeric(tinting$tint)
+tint.mean <- mean(tinting$tint)
+for (i in 1:7){
+  age <- ages_vec[i]
+  hyp.unit<-c(1, age, 1, 1, tint.mean, tint.mean*age) #for part a, replace tint.mean with 1
+  predicted <- c()
+  for (spot in 1:1000) {
+    predicted[spot] <- sum(hyp.unit * coef(sim_results)[spot,])
+  }
+  allpredicted[i,]<-predicted
+  ages_matrix[i,1]<- quantile(predicted, 0.025)
+  ages_matrix[i,2]<- quantile(predicted, 0.975)
+  ages_matrix[i,3]<- mean(predicted)
+}
+ages_table<-as.table(ages_matrix)
+ages_table
+allpredicted
+ageboxes<- boxplot(allpredicted[1,],allpredicted[2,],allpredicted[3,],allpredicted[4,],allpredicted[5,],allpredicted[6,],allpredicted[7,], main = "Predicted CSOA for Typical Female Units, Ages 20-80", names = ages_vec, xlab = "Age", ylab = "CSOA")
+ageboxes 
+
+#question 3
+data(lalonde)
+summary(lalonde)
+r.squared<-function(realvals, expctdvals){
+  real.stdv <-c()
+  expect.stdv<-c()
+  for (i in (1:length(realvals))){real.stdv[i]<-((realvals[i]-mean(realvals)))/sd(realvals)}
+  for (i in (1:length(expctdvals))){expect.stdv[i]<-((expctdvals[i]-mean(expctdvals)))/sd(expctdvals)}
+  correlation_coefficient <- sum(real.stdv*expect.stdv)/(length(realvals)-1)
+  final_value<-(correlation_coefficient*correlation_coefficient)
+  return(final_value)
+}
+test.regression <- lm(re78 ~ age + educ +black +nodegr, data=lalonde)
+regression.re78<-predict(test.regression, lalonde)
+r.squared(lalonde$re78,predict(test.regression, lalonde))
+summary(test.regression)$r.sq
+
+#question 4
+library(foreign)
+mazedata1 <- read.dta('mazedata1.dta')
+summary(mazedata1)
+treat_group=mazedata1$round1[which(mazedata1$treatment=='Caste Revealed')]
+control_group=mazedata1$round1[which(mazedata1$treatment!='Caste Revealed')]
+length(control_group)
+differencevector <-c()
+for (i in 1:10000){
+  treat.avg <- mean(sample(treat_group, length(treat_group), replace=TRUE))
+  control.avg <- mean(sample(control_group, length(control_group), replace=TRUE))
+  diff.means <- treat.avg - control.avg
+  differencevector[i] <- diff.means
+}
+hist(differencevector, xlab ='Treatment Effect', main = 'Treatment Effects from Bootstrapping')
+summary(mazedata1)
+justatest<- quantile(differencevector, probs = c(0.025,0.975))
+q4matrix <- matrix(nrow = 2, ncol =2, dimnames = list(c('Bootstrapped', 'Confint'),c('2.5%','97.5%')))
+q4matrix[1,] <-justatest
+q4matrix[2,] <- confint(lm(round1~ I(treatment == "Caste Revealed"), data=mazedata1))[2,]
+q4matrix
+
+
+#question 5
+library(boot)
+foo <- read.csv(url("https://tinyurl.com/yx8tqf3k"))
+set.seed(12345)
+test_set_rows <- sample(1:length(foo$age), 2000, replace =FALSE)
+test_set_data <- foo[test_set_rows,]
+treat_set_data <- foo[-test_set_rows,]
+simple_model<- glm(treat ~ education, data=treat_set_data)
+complex_model<- glm(treat ~ age + education + black +hispanic + married + nodegree + re75 + u74 + u75 + age*education, data=treat_set_data)
+simpleten <- cv.glm(treat_set_data, simple_model, K =  10)$delta[2]
+complexten <- cv.glm(treat_set_data, complex_model, K = 10)$delta[2]
+LOOCVsimp <- cv.glm(treat_set_data, simple_model)$delta[1]
+LOOCVcomp <- cv.glm(treat_set_data, complex_model)$delta[1]
+results_matrix <- matrix(nrow = 3, ncol=2, dimnames = list(c("10 Fold", "LOOCV", "Test Set"), c("Simple Model MSE","Complex Model MSE")))
+colnames.results_matrix <- c("Simple Model MSE","Complex Model MSE")
+rownames.results_matrix <- c("10 Fold", "LOOCV", "Test Set")
+results_matrix[1,1] <- simpleten
+results_matrix[1,2] <- complexten
+results_matrix[2,1] <- LOOCVsimp
+results_matrix[2,2] <- LOOCVcomp
+MSE_simp = mean((test_set_data$treat - predict.lm(simple_model, test_set_data))**2)
+MSE_comp = mean((test_set_data$treat - predict.lm(complex_model, test_set_data))**2)
+results_matrix[3,1]<- MSE_simp
+results_matrix[3,2]<- MSE_comp
+results_matrix
+dim(treat_set_data)
+
+#Question 6
+trt = matrix(NA,nrow=2,ncol=7)
+ctrl = matrix(NA,nrow=2,ncol=7) 
+
+trt[,1]=c(0, 2) #18
+ctrl[,1]=c(3, 10)
+trt[,2]=c(0, 3) #20
+ctrl[,2]=c(2, 8)
+trt[,3]=c(0, 4) #22
+ctrl[,3]=c(2, 7)
+trt[,4]=c(1, 3) #24
+ctrl[,4]=c(2, 6)
+trt[,5]=c(1, 3) #26
+ctrl[,5]=c(2, 5)
+trt[,6]=c(1, 3) #28
+ctrl[,6]=c(2, 4)
+trt[,7]=c(1, 2) #30
+ctrl[,7]=c(1, 3)
+
+
+c1 = rgb(red = 1, green = 0, blue = 0, alpha = 0.5) #trt
+c2 = rgb(red = 0, green = 0, blue = 1, alpha = 0.5) #ctrl
+
+plot(x = c(1:100), y = c(1:100), type = "n", xlim = c(17,31), ylim = c(0,11), cex.lab=1.2,
+     main = "Alcohol Consumption - 95% Prediction Intervals", xlab = "Age",ylab = "Drinks per Week")
+
+for (age in seq(from=18,to=30,by=2)) { 
+  segments(x0 = age-0.05, y0 = trt[1, (age-18)/2+1],
+           x1 = age-0.05, y1 = trt[2, (age-18)/2+1],lwd = 3,col=c1)
+  
+  segments(x0 = age+0.05, y0 = ctrl[1, (age-18)/2+1],
+           x1 = age+0.05, y1 = ctrl[2, (age-18)/2+1],lwd = 3,col=c2)
+}
+legend('topright',legend=c('Treatment','Control'),fill=c(c1,c2))
+mtext("https://tinyurl.com/vwxuwop", side = 1, cex = 0.5, adj = 0, padj = 10)
+
